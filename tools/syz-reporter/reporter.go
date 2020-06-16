@@ -7,27 +7,17 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
-
-	// "hash"
-	"bufio"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-
-	//"time"
 	"strconv"
 	"strings"
 
-	// "github.com/google/syzkaller/pkg/csource"
 	"github.com/google/syzkaller/pkg/log"
-	"github.com/google/syzkaller/pkg/report"
-	// "github.com/google/syzkaller/pkg/mgrconfig"
-	// "github.com/google/syzkaller/pkg/report"
-	// "github.com/google/syzkaller/prog"
-	// "github.com/google/syzkaller/vm"
-	// "github.com/google/syzkaller/pkg/hash"
+	//"github.com/google/syzkaller/pkg/report"
 )
 
 var (
@@ -41,10 +31,6 @@ var (
 	statuses = []string {"crashed", "failed", "timed_out", "passed"}
 )
 
-type CrashReport struct {
-	vmIndex int
-	Report  *report.Report
-}
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "usage: report.py [-h] --input_dir INPUT_DIR --output_file OUTPUT_FILE\n\n" +
@@ -72,14 +58,14 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 
-	// Non-defined args present:
+	// Check whther non-defined (unexpected) args are given
 	if len(args) > 0 {
 		fmt.Println("Unexpected args used starting from: " + args[0])
 		usage()
 	}
 
 	// Test-read of INPUT DIR?  Do we need that?
-	inDir := *flagInDir  // inDir := args[1]
+	inDir := *flagInDir
 	_, err := ioutil.ReadDir(inDir)
 	if err != nil {
 		log.Fatalf("Failed to read INPUT_DIR '%s': %v", inDir, err)
@@ -91,7 +77,6 @@ func main() {
 
 	log.Logf(0, "all done.")
 }
-
 
 
 // Intended to return signle line read stripped out off any unnecessary wrapping
@@ -113,34 +98,27 @@ func ReadStrippedln(r *bufio.Reader) (string, error) {
 
 
 func get_crashes(hash_dir string) []string {
-	crashes := []string{}  // []
+	crashes := []string{}
 
 	hashDirList, err := ioutil.ReadDir(hash_dir)
 	if err != nil {
 		log.Fatal(err)
-		// os.Exit(1)  // Any reason to drop everything?
+		// os.Exit(1)  // Any reason to drop everything and give up?
 	}
 
-	for _, crash := range hashDirList {  // crash in os.listdir(hash_dir):
-		crash_path := filepath.Join(hash_dir, crash.Name())  // os.path.join(hash_dir, crash)
-		if stat, err := os.Stat(crash_path); err != nil || !stat.IsDir() {  // if not os.path.isdir(crash_path):
+	for _, crash := range hashDirList {
+		crash_path := filepath.Join(hash_dir, crash.Name())
+		if stat, err := os.Stat(crash_path); err != nil || !stat.IsDir() {
 			continue
 		}
-		desc_file := filepath.Join(crash_path, "description")  // os.path.join(crash_path, "description")
-
-		// // with open(desc_file, "r") as stream:
-		// // 	description = stream.readline().strip()
-		// if b, err := ioutil.ReadFile(desc_file), err != nil {
-		// 	log.Fatal(err)
-		// 	// os.Exit(1)  // Any reason to drop everything?
+		desc_file := filepath.Join(crash_path, "description")
 
 		descFileOpen, err := os.Open(desc_file)
 		description := ""
 		if err != nil {
 			log.Fatal(err)
-			// os.Exit(1)  // Any reason to drop everything?
+			// os.Exit(1)  // Any reason to drop everything and give up?
 		} else {
-			// description = stream.readline().strip()
 			rdDescFile := bufio.NewReader(descFileOpen)
 			description, err = ReadStrippedln(rdDescFile)
 			if err != nil {
@@ -148,7 +126,7 @@ func get_crashes(hash_dir string) []string {
 			}
 		}
 
-		crashes = append(crashes, description)  // crashes.append(description)
+		crashes = append(crashes, description)
 	}
 
 	return crashes
@@ -208,44 +186,11 @@ func writeStrChkErr(f *os.File, s string) int {
 
 
 func write_report(report map[string][]string, output_file string) {
-	// with open(output_file, "w") as stream:
-	// 	if len(report["kernel_versions"]):
-	// 		stream.write("# Found kernel version(s):\n")
-	// 		print("h5. Found kernel version(s):")
-	// 		stream.write("```\n")
-	// 		for kernel_version in report["kernel_versions"]:
-	// 			print(kernel_version + "\n")
-	// 			stream.write(kernel_version + "\n")
-	// 		stream.write("```\n")
-
-	// 	stream.write("# Summary:\n")
-	// 	print("h5. Summary:")
-	// 	for line in report["summary"]:
-	// 		stream.write("    " + line + "\n")
-	// 		print("    " + line)
-
-	// 	stream.write("# Reproducers:\n")
-	// 	print("h5. Reproducers:")
-	// 	print("||" + report["header"].replace("|", "||") + "||")
-	// 	stream.write(report["header"] + "\n")
-	// 	column_count = len(report["header"].split("|"))
-	// 	while column_count:
-	// 		column_count -= 1
-	// 		stream.write("-")
-	// 		if column_count:
-	// 			stream.write("|")
-	// 	stream.write("\n")
-
-	// 	for status in Report.statuses:
-	// 		for line in report[status]:
-	// 			print("|" + line + "|")
-	// 			stream.write(line + "\n")
-
     fout, err := os.Create(output_file)
     if err != nil {
         fmt.Println(err)
 		log.Fatal(err)
-		os.Exit(1)  // Really reason to drop everything, right?
+		os.Exit(1)  // Really the reason now to drop everything, right?
 	}
 	l := 0
 	// OVT: Refers to not converted part yet (should print out 0?)
@@ -287,7 +232,6 @@ func write_report(report map[string][]string, output_file string) {
 			l += writeStrChkErr(fout, line + "\n")
 		}
 	}
-
 	fmt.Println(l, "bytes written successfully")
     err = fout.Close()
     if err != nil {
@@ -305,27 +249,24 @@ func get_comparison_results(comparison_dirs []string, hash_id string) string {
 		return comparison_results
 	}
 
-	hash_dir := "" // Do we need this init?
-	hash_log := "" // For this also?
-	for _, dir := range comparison_dirs {  // dir in comparison_dirs:
-		hash_dir = filepath.Join(dir, hash_id)  // os.path.join(dir, hash_id)
-		hash_log = filepath.Join(hash_dir, hash_id + ".log")  // os.path.join(dir, hash_id, hash_id + ".log")
+	hash_dir := ""
+	hash_log := ""
+	for _, dir := range comparison_dirs {
+		hash_dir = filepath.Join(dir, hash_id)
+		hash_log = filepath.Join(hash_dir, hash_id + ".log")
 		comparison_results = "|"
 
-		// if not os.path.exists(hash_dir) or not os.path.exists(hash_log)
-		// _, err := os.Stat(hash_dir); //TODO: Do we need that extra check?
 		if _, err := os.Stat(hash_log); err != nil {
 			comparison_results += "Not available"
 			continue
 		}
-
 		_, exit_code := get_kernel_version_and_exit_code(hash_log)
 
 		crashes := get_crashes(hash_dir)
 		if len(crashes) > 0 {
-			for _, crash := range crashes { // crash in crashes:
+			for _, crash := range crashes {
 				comparison_results += crash
-				if crash != crashes[len(crashes) - 1] {  // not crash == crashes[-1]: // OVT: last elem-t?
+				if crash != crashes[len(crashes) - 1] {
 					comparison_results += ", "
 				}
 			}
@@ -337,12 +278,12 @@ func get_comparison_results(comparison_dirs []string, hash_id string) string {
 			comparison_results += "FAILED"
 		}
 	}
-
 	return comparison_results
 }
 
 
-// TODO: Convert when func-ty accepted to syzkaller
+// TODO: Convert the code below when func-ty accepted to syzkaller:
+
 // func get_config_bisect_result(results_dir, hash_id) {
 // 	config_bisect_dir = os.path.join(results_dir, hash_id)
 
@@ -379,7 +320,7 @@ func get_comparison_results(comparison_dirs []string, hash_id string) string {
 // }
 
 
-// WT#? GoLang doesn't have THAT in any libs???!!
+// It's reported the GoLang doesn't have THIS crucial thing in any of its libs
 // Contains tells whether a contains x.
 func Contains(a []string, x string) bool {
 	for _, n := range a {
@@ -392,56 +333,48 @@ func Contains(a []string, x string) bool {
 
 
 func generate(input_dir, output_file, config_bisect_dir string, comparison_dir []string) {
-	report := make(map[string][]string)  // report = {}
-	report["kernel_versions"] = []string{}  // report["kernel_versions"] = []
+	report := make(map[string][]string)
+	report["kernel_versions"] = []string{}
 	report["header"] = append(report["header"], "SHA|Status|Crashes")
 
-	// OVT: Add this option fucn-ty later (not accepted into the master yet)
+	// OVT: TODO: Add this option fucn-ty later (not accepted into the master yet)
 	// if config_bisect_dir
 	// 	report["header"] += "|Config Bisect"
 	if len(comparison_dir) > 1 || len(comparison_dir) > 0 && len(comparison_dir[0]) > 0 {
-		for _, dir := range comparison_dir { // dir in comparison_dir:
+		for _, dir := range comparison_dir {
 			report["header"][0] += "|" + dir
 		}
 	}
+	report["summary"] = []string{}
 
-	report["summary"] = []string{}  // report["summary"] = []
-
-	for _, status := range statuses { // status in Report.statuses:
-		report[status] = []string{}  // = []
+	for _, status := range statuses {
+		report[status] = []string{}
 	}
-
 	dirList, err := ioutil.ReadDir(input_dir)
 	if err != nil {
-		log.Fatal(err)  // didn't we check that actually initially?
+		log.Fatal(err)  // TODO: Check if it's needed: didn't we check that actually initially?
 		os.Exit(1)
 	}
-
-	for _, hash_id := range dirList {  // hash_id in os.listdir(input_dir)
-		hash_dir := filepath.Join(input_dir, hash_id.Name())  // os.path.join(input_dir, hash_id)
-		if stat, err := os.Stat(hash_dir); err != nil || !stat.IsDir() {  // if not os.path.isdir(hash_dir):
+	for _, hash_id := range dirList {
+		hash_dir := filepath.Join(input_dir, hash_id.Name())
+		if stat, err := os.Stat(hash_dir); err != nil || !stat.IsDir() {
 			continue
 		}
-
-		// TODO: Check converted!
 		crashes := get_crashes(hash_dir)
 
 		hash_log := filepath.Join(hash_dir, hash_id.Name() + ".log")  // os.path.join(hash_dir, hash_id + ".log")
 		if _, err := os.Stat(hash_log); err != nil {  // if not os.path.exists(hash_log):
 			continue
 		}
-
 		// TODO: Check converted!
 		kernel_version, exit_code := get_kernel_version_and_exit_code(hash_log)
 
-		// if kernel_version && kernel_version not in report["kernel_versions"]:
 		if !Contains(report["kernel_versions"], kernel_version) {
 			report["kernel_versions"] = append(report["kernel_versions"], kernel_version)
 		}
-
 		report_line := hash_id.Name() + "|"
 
-		// OVT: Add this option fucn-ty later (not accepted into the Syz-master yet)
+		// OVT: TODO: Add this option fucn-ty later (not accepted into the Syz-master yet)
 		// if config_bisect_dir {
 		// 	bisect_result := "|N/A"
 		// } else {
@@ -451,14 +384,14 @@ func generate(input_dir, output_file, config_bisect_dir string, comparison_dir [
 
 		if len(crashes) > 0 {
 			report_line += "CRASHED|"
-			for _, crash := range crashes {  // crash in crashes:
+			for _, crash := range crashes {
 				report_line += crash
 				if crash != crashes[len(crashes) - 1] {
 					report_line += ", "
 				}
 			}
 
-			// OVT: Add this option fucn-ty later (not accepted into the Syz-master yet)
+			// OVT: TODO: Add this option fucn-ty later (not accepted into the Syz-master yet)
 			// if config_bisect_dir {
 			// 	report_line += "|"
 			// 	bisect_result = Report.get_config_bisect_result(config_bisect_dir, hash_id)
@@ -480,7 +413,7 @@ func generate(input_dir, output_file, config_bisect_dir string, comparison_dir [
 	}
 
 	total_repros := 0
-	for _, status := range statuses {  // status in Report.statuses:
+	for _, status := range statuses {
 		total_repros += len(report[status])
 	}
 	report["summary"] = append(report["summary"], "Total number of reproducers: " + strconv.Itoa(total_repros))
@@ -489,7 +422,6 @@ func generate(input_dir, output_file, config_bisect_dir string, comparison_dir [
 	report["summary"] = append(report["summary"], "Timed out: " + strconv.Itoa(len(report["timed_out"])))
 	report["summary"] = append(report["summary"], "passed: " + strconv.Itoa(len(report["passed"])))
 
-	// TODO: Check implemented!
 	write_report(report, output_file)
 }
 
